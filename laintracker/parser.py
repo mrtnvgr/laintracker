@@ -17,7 +17,7 @@ class Parser:
     def saveFile(self):
         json.dump(self.data, open(self.filename, "w", encoding="utf-8"))
 
-    def editInstrument(self, pattern, wavetype=None, amplitude=None, envelope=False):
+    def editInstrument(self, pattern, wavetype=None, amplitude=None, downgrade=None, envelope=False):
         if type(pattern) is str: pattern = [pattern]
         for pat in pattern:
             if pat not in self.data["instruments"]:
@@ -25,6 +25,7 @@ class Parser:
             self.data["instruments"][pat] = {"wavetype": self.default_wave}
             if wavetype!=None: self.data["instruments"][pat]["wavetype"] = wavetype
             if amplitude!=None: self.data["instruments"][pat]["amplitude"] = amplitude
+            if downgrade!=None: self.data["instruments"][pat]["downgrade"] = downgrade
             if envelope==False: envelope = self.default_envelope
             self.data["instruments"][pat]["envelope"] = envelope
 

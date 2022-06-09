@@ -1,9 +1,9 @@
 import itertools, struct, wave
-from numpy import pi,sin,mod,arange,multiply
+from numpy import pi,sin,mod
 from random import randint
 
 class Synth:
-    def __init__(self, framerate=44100, amplitude=1.0, speed=1.0, quantize=2./15, normalize_volume=False):
+    def __init__(self, framerate=44100, amplitude=1.0, speed=1.0, quantize=2/15, downgrade=True, normalize_volume=True):
         self.notefreqs = {
             "C":  [16.35, 32.70, 65.41, 130.81, 261.63, 523.25, 1046.50, 2093.00, 4186.01],
             "C#": [17.32, 34.65, 69.30, 138.59, 277.18, 554.37, 1108.73, 2217.46, 4434.92],
@@ -18,47 +18,48 @@ class Synth:
             "A#": [29.14, 58.27, 116.54, 233.08, 466.16, 932.33, 1864.66, 3729.31, 7458.62],
             "B":  [30.87, 61.74, 123.47, 246.94, 493.88, 987.77, 1975.53, 3951.07, 7902.13]
         }
-        self.framerate = framerate
-        self.amplitude = amplitude
-        self.speed = speed
         self.normalize_volume = normalize_volume
+        self.framerate = framerate
+        self.speed = speed
+        self._downgrade = downgrade
         self._amplitude_scale = 32767
+        self._default_amplitude = amplitude
         self._quantize = quantize
         self._channels = 1
         self._bits = 16
     
-    def sine_generator(self, frequency, amplitude=None):
+    def sine_generator(self, frequency, downgrade=None, amplitude=None):
         period_length = int(self.framerate / frequency)
         step = 2 * pi * frequency
         one_period = [amplitude*sin(step * i / self.framerate) for i in range(period_length)]
-        return itertools.cycle(self.downgrade(one_period))
+        return itertools.cycle(self.downgrade(one_period, switch=downgrade))
 
-    def square_generator(self, frequency, amplitude=None, duty_cycle=50):
+    def square_generator(self, frequency, downgrade=None, amplitude=None, duty_cycle=50):
         period_length = int(self.framerate / frequency)
         duty_cycle = int(duty_cycle * period_length / 100)
         one_period = [amplitude*(int(i < duty_cycle) * 2 - 1) for i in range(period_length)]
-        return itertools.cycle(self.downgrade(one_period))
+        return itertools.cycle(self.downgrade(one_period, switch=downgrade))
 
-    def sawtooth_generator(self, frequency, amplitude=None):
+    def sawtooth_generator(self, frequency, downgrade=None, amplitude=None):
         period_length = int(self.framerate / frequency)
         one_period = [amplitude*(frequency * (i / self.framerate) * 2 - 1) for i in range(period_length)]
-        return itertools.cycle(self.downgrade(one_period))
+        return itertools.cycle(self.downgrade(one_period, switch=downgrade))
 
-    def triangle_generator(self, frequency, amplitude=None):
+    def triangle_generator(self, frequency, downgrade=None, amplitude=None):
         period_length = int(self.framerate / frequency)
         half_period = period_length / 2
         one_period = [amplitude*(1 / half_period * (half_period - abs(i - half_period) * 2 - 1) + 0.02)
                       for i in range(period_length)]
-        return itertools.cycle(one_period)
+        return itertools.cycle(self.downgrade(one_period, switch=downgrade))
     
-    def noise_generator(self, amplitude=None, **kwargs):
+    def noise_generator(self, downgrade=None, amplitude=None, **kwargs):
         period = [amplitude*randint(-1,1) for i in range(self.framerate)]
-        return itertools.cycle(self.downgrade(period, fadeSwitch=False))
+        return itertools.cycle(self.downgrade(period, switch=downgrade))
 
-    def fnoise_generator(self, frequency, amplitude=None):
+    def fnoise_generator(self, frequency, downgrade=None, amplitude=None):
         period = int(self.framerate / frequency)
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
-        return itertools.cycle(self.downgrade(lookup_table, fadeSwitch=False))
+        return itertools.cycle(self.downgrade(lookup_table, switch=downgrade))
     
     # def sample_generator(self, frequency, amplitude=None):
     #     try:
@@ -70,36 +71,28 @@ class Synth:
     #     except FileNotFoundError:
     #         return itertools.repeat(0)
 
-    def downgrade(self, arr, fadeSwitch=True):
-        if self._quantize!=False: arr = arr - mod(arr, self._quantize)
-        if fadeSwitch:
-            fade = len(arr)
-            fade_in = arange(0., 1., 1/fade)
-            fade_out = arange(1., 0., -1/fade)
-            arr[:fade] = multiply(arr[:fade], fade_in)
-            arr[-fade:] = multiply(arr[-fade:], fade_out)
+    def downgrade(self, arr, switch=None):
+        if switch==None: switch = self._downgrade
+        if switch: arr = arr - mod(arr, self._quantize)
         return arr
     
     def getAmplitude(self, amplitude, wavetype):
-        if amplitude==None:
-            if self.normalize_volume:
-                if wavetype=="sine":
-                    return 2
-                elif wavetype=="square":
-                    return 1
-                elif wavetype=="sawtooth":
-                    return 2
-                elif wavetype=="triangle":
-                    return 1
-                elif wavetype=="noise":
-                    return 0.8
-                elif wavetype=="fnoise":
-                    return 0.8
-                elif wavetype=="sample":
-                    return 1
-            return self.amplitude
-        else:
-            return amplitude
+        if amplitude!=None: return amplitude
+        # fade = len(arr)
+        # fade_in = arange(0., 1., 1/fade)
+        # fade_out = arange(1., 0., -1/fade)
+        # arr[:fade] = multiply(arr[:fade], fade_in)
+        # arr[-fade:] = multiply(arr[-fade:], fade_out)
+        if self.normalize_volume:
+            if wavetype=="sine":
+                return 2
+            elif wavetype in ("square", "sawtooth"):
+                return 0.5
+            elif wavetype in ("noise","fnoise"):
+                return 0.5
+            elif wavetype in ("triangle","sample"):
+                return 1
+        return self._default_amplitude
 
     @staticmethod
     def getReverse(res, reverse):
@@ -125,7 +118,7 @@ class Synth:
     def overlay_waves(self, *waves):
         returnlist = []
         for sample in itertools.zip_longest(*waves, fillvalue=0):
-            mix = sum(sample)
+            mix = sum(sample)//len(sample)
             if mix>self._amplitude_scale: mix = self._amplitude_scale
             if mix<-self._amplitude_scale: mix = -self._amplitude_scale
             returnlist.append(mix)
@@ -158,14 +151,23 @@ class Synth:
         total_bytes = int(self.framerate * length)
         for i in range(total_bytes):
             yield self.getReverse((total_bytes - i) / total_bytes * peak, reverse)
+    
+    def wave_envelope(self, length, wavetype, frequency, peak=1.0, reverse=False, note_length=None):
+        # TODO
+        wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=peak)")
+        total_bytes = int(self.framerate * length)
+        wave_slices = itertools.islice(wave_generator, total_bytes)
+        for elem in wave_slices:
+            print(abs(elem))
+            yield self.getReverse(abs(elem), reverse)
 
     @staticmethod
     def flat_envelope(amplitude=1):
         return itertools.repeat(amplitude)
 
-    def pack_wave_data(self, wavetype, frequency, length, amplitude=None, envelope=None):
+    def pack_wave_data(self, wavetype, frequency, length, downgrade=None, amplitude=None, envelope=None):
         amplitude = self.getAmplitude(amplitude, wavetype)
-        wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=amplitude)")
+        wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=amplitude, downgrade=downgrade)")
         amplitude_scale = self._amplitude_scale
         num_bytes = int(self.framerate * length)
         if not envelope:
@@ -230,14 +232,16 @@ class Synth:
                         waveargs["filename"] = instrument["filename"]
                     if "envelope" in instrument:
                         waveargs["envelope"] = instrument["envelope"]
+                    if "downgrade" in instrument:
+                        waveargs["downgrade"] = instrument["downgrade"]
                     if frequency in ("NN", ""):
                         waveargs["wavetype"] = "silence"
                     if type(frequency) is list:
                         notes = []
-                        if "amplitude" in waveargs: originalAmplitude = waveargs["amplitude"]
                         for fr in range(len(frequency)):
                             waveargs["frequency"] = self.getFrequency(frequency[fr])
                             if "amplitude" in waveargs:
+                                originalAmplitude = waveargs["amplitude"]
                                 if type(originalAmplitude) is list and len(frequency)<=len(originalAmplitude):
                                     waveargs["amplitude"] = originalAmplitude[fr]
                             notes.append(self.pack_wave_data(**waveargs))
