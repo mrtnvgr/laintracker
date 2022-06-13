@@ -39,14 +39,14 @@ class Parser:
             self.data["order"].append([])
         self.data["order"][offset] = line
 
-    def editPattern(self, pattern, note, length=None, offset=None):
+    def editPattern(self, pattern, note, length=None, offset=None, **kwargs):
         if pattern not in self.data["patterns"]:
             self.data["patterns"][pattern] = []
         offset = self.__getOffset(offset, len(self.data["patterns"][pattern]))
         while True:
             if len(self.data["patterns"][pattern])>offset: break
             self.data["patterns"][pattern].append(None)
-        self.data["patterns"][pattern][offset] = {"note": note}
+        self.data["patterns"][pattern][offset] = {"note": note}|kwargs
         if length!=None: self.data["patterns"][pattern][offset]["length"] = length
     
     def __getOffset(self, offset, lendata):
