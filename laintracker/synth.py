@@ -215,6 +215,7 @@ class Synth:
     def compile(self, data, verbose=False):
         self.verbose = verbose
         compiled_patterns = {}
+        cut = False
         npatterns = len(data["patterns"])
         cnpatterns = 0
         self.output(f"Compiling patterns:")
@@ -228,7 +229,9 @@ class Synth:
                     instrument = data["instruments"][pattern]
                     waveargs = {"wavetype": instrument["wavetype"]}
                     if "length" in note: length = note["length"]/self.speed
+                    if "cut" in note: cut = note["cut"]
                     waveargs["length"] = length
+                    if cut and waveargs["wavetype"]=="sample": waveargs["cut"] = cut
                     frequency = note["note"]
                     if "amplitude" in instrument:
                         waveargs["amplitude"] = instrument["amplitude"]
@@ -236,8 +239,6 @@ class Synth:
                         waveargs["filename"] = instrument["filename"]
                     if "envelope" in instrument:
                         waveargs["envelope"] = instrument["envelope"]
-                    if "cut" in note:
-                        waveargs["cut"] = note["cut"]
                     if frequency in ("NN", ""):
                         waveargs["wavetype"] = "silence"
                     if type(frequency) is list:
