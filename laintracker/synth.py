@@ -3,7 +3,7 @@ import itertools, struct, wave
 from random import randint
 
 class Synth:
-    def __init__(self, framerate=44100, amplitude=1.0, speed=1.0, quantize=2/15, downgrade=True, normalize_volume=True):
+    def __init__(self, framerate=44100, amplitude=1.0, speed=1.0, quantize=2/15, downgrade=True, downgradeSamples=False, normalize_volume=True):
         self.notefreqs = {
             "C":  [16.35, 32.70, 65.41, 130.81, 261.63, 523.25, 1046.50, 2093.00, 4186.01],
             "C#": [17.32, 34.65, 69.30, 138.59, 277.18, 554.37, 1108.73, 2217.46, 4434.92],
@@ -22,6 +22,7 @@ class Synth:
         self.framerate = framerate
         self.speed = speed
         self._downgrade = downgrade
+        self._downgrade_samples = downgradeSamples
         self._amplitude_scale = 32767
         self._default_amplitude = amplitude
         self._quantize = quantize
@@ -61,18 +62,22 @@ class Synth:
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
         return itertools.cycle(self.downgrade(lookup_table))
     
-    def sample_generator(self, frequency, cut=None, amplitude=None):
+    def sample_generator(self, frequency, file, cut=None, amplitude=None):
         try:
-            with wave.open(frequency, 'r') as f:
+            with wave.open(file, 'r') as f:
                 data = f.readframes(f.getnframes())
             data = frombuffer(data, dtype=f'int{f.getsampwidth()*8}')/self._amplitude_scale
             if cut!=None:
                 if len(cut)!=2: cut = (cut[0],cut[1])
                 cut = [int(i*self.framerate) for i in cut]
                 data = data[cut[0]:cut[1]]
-            return (amplitude*data)
+            if frequency!=None:
+                pass # TODO
+            sample = (amplitude*data)
+            if self._downgrade_samples: sample = self.downgrade(sample)
+            return sample
         except FileNotFoundError:
-            print(f"{frequency}: not found")
+            print(f"{file}: not found")
             return itertools.repeat(0)
 
     def downgrade(self, arr):
@@ -98,6 +103,7 @@ class Synth:
             return res
 
     def getFrequency(self, frequency):
+        if frequency==None: return None
         if frequency[:-1] in self.notefreqs:
             return self.notefreqs[frequency[:-1]][int(frequency[-1])]
         else:
@@ -216,6 +222,7 @@ class Synth:
         self.verbose = verbose
         compiled_patterns = {}
         cut = False
+        file = False
         npatterns = len(data["patterns"])
         cnpatterns = 0
         self.output(f"Compiling patterns:")
@@ -230,8 +237,13 @@ class Synth:
                     waveargs = {"wavetype": instrument["wavetype"]}
                     if "length" in note: length = note["length"]/self.speed
                     if "cut" in note: cut = note["cut"]
+                    if "file" in note: file = note["file"]
                     waveargs["length"] = length
-                    if cut and waveargs["wavetype"]=="sample": waveargs["cut"] = cut
+                    if waveargs["wavetype"]=="sample":
+                        if cut!=None: waveargs["cut"] = cut
+                        if file!=None: waveargs["file"] = file
+                        if file in ("NN",""):
+                            waveargs["wavetype"] = "silence"
                     frequency = note["note"]
                     if "amplitude" in instrument:
                         waveargs["amplitude"] = instrument["amplitude"]
