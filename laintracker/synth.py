@@ -1,4 +1,4 @@
-from numpy import pi,sin,mod,frombuffer
+from numpy import pi,sin,cos,exp,mod,array,frombuffer
 import itertools, struct, wave
 from random import randint
 
@@ -29,40 +29,40 @@ class Synth:
         self._channels = 1
         self._bits = 16
     
-    def sine_generator(self, frequency, amplitude=None):
+    def sine_generator(self, frequency, amplitude):
         period_length = int(self.framerate / frequency)
         step = 2 * pi * frequency
         one_period = [amplitude*sin(step * i / self.framerate) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
-    def square_generator(self, frequency, amplitude=None, duty_cycle=50):
+    def square_generator(self, frequency, amplitude, duty_cycle=50):
         period_length = int(self.framerate / frequency)
         duty_cycle = int(duty_cycle * period_length / 100)
         one_period = [amplitude*(int(i < duty_cycle) * 2 - 1) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
-    def sawtooth_generator(self, frequency, amplitude=None):
+    def sawtooth_generator(self, frequency, amplitude):
         period_length = int(self.framerate / frequency)
         one_period = [amplitude*(frequency * (i / self.framerate) * 2 - 1) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
-    def triangle_generator(self, frequency, amplitude=None):
+    def triangle_generator(self, frequency, amplitude):
         period_length = int(self.framerate / frequency)
         half_period = period_length / 2
         one_period = [amplitude*(1 / half_period * (half_period - abs(i - half_period) * 2 - 1) + 0.02)
                       for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
     
-    def noise_generator(self, amplitude=None, **kwargs):
+    def noise_generator(self, amplitude, **kwargs):
         period = [amplitude*randint(-1,1) for i in range(self.framerate)]
         return itertools.cycle(self.downgrade(period))
 
-    def fnoise_generator(self, frequency, amplitude=None):
+    def fnoise_generator(self, frequency, amplitude):
         period = int(self.framerate / frequency)
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
         return itertools.cycle(self.downgrade(lookup_table))
-    
-    def sample_generator(self, frequency, file, cut=None, amplitude=None):
+
+    def sample_generator(self, frequency, file, amplitude, cut=None):
         try:
             with wave.open(file, 'r') as f:
                 data = f.readframes(f.getnframes())
@@ -122,7 +122,6 @@ class Synth:
         for sample in itertools.zip_longest(*waves, fillvalue=0):
             mix = sum(sample)
             if chord:
-                #mix = mix//len(sample)
                 chordSample = len(sample)-sample.count(0)
                 if chordSample>0: mix = mix//chordSample
             if mix>self._amplitude_scale: mix = self._amplitude_scale
@@ -218,13 +217,11 @@ class Synth:
     def output(self, text, **kwargs):
         if self.verbose: print(text, **kwargs)
 
-    def compile(self, data, verbose=False):
-        self.verbose = verbose
+    def compilePatterns(self, data):
         compiled_patterns = {}
-        cut = False
-        file = False
-        npatterns = len(data["patterns"])
         cnpatterns = 0
+        cut, file = (None, None)
+        npatterns = len(data["patterns"])
         self.output(f"Compiling patterns:")
         for pattern in data["patterns"]:
             cnpatterns += 1
@@ -267,6 +264,9 @@ class Synth:
                         waveargs["frequency"] = self.getFrequency(frequency)
                         notewave = self.pack_wave_data(**waveargs)
                     compiled_patterns[pattern] = compiled_patterns[pattern] + notewave
+        return compiled_patterns
+
+    def joinPatterns(self, data, compiled_patterns):
         waves = [[]]
         oldIndex = 0
         norder = len(data["order"])
@@ -281,4 +281,10 @@ class Synth:
                     waves[offset] = self.overlay_waves(waves[offset],compiled_patterns[pattern])
         wave = [item for innerlist in waves for item in innerlist]
         self.output("\n")
+        return wave
+
+    def compile(self, data, verbose=False):
+        self.verbose = verbose
+        compiled_patterns = self.compilePatterns(data)
+        wave = self.joinPatterns(data, compiled_patterns)
         self.save_wave(self.pack_pcm_data(wave))
