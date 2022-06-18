@@ -1,14 +1,15 @@
 #!/bin/python
 from laintracker import *
 
-synth = Synth()
+synth = Synth(downgradeSamples=True)
 parser = Parser(name="Intensive Care Unit", filename="icu.json", default_wave="square")
 
 #parser.editInstrument(pattern="01", wavetype="sawtooth", envelope={"type": "wave", "args": {"wavetype": "sine", "length": 1, "frequency": 1}})
 
 parser.editInstrument(pattern=["01", "12"], wavetype="sawtooth", envelope={"type": "linear_decay", "args": {"length": 1}})
 parser.editInstrument(pattern="14", wavetype="triangle")
-parser.editInstrument(pattern="10", wavetype="sample", amplitude=2)
+parser.editInstrument(pattern="15", wavetype="silence")
+parser.editInstrument(pattern="10", wavetype="drum", amplitude=2)
 
 parser.editOrder(["01"])
 for i in range(0,10):
@@ -158,15 +159,24 @@ parser.editPattern(pattern="09", note="")
 # parser.editPattern(pattern="10", note="", length=0.24)
 # parser.editPattern(pattern="10", note="G3", length=0.08)
 # parser.editPattern(pattern="10", note="", length=0.24)
-parser.editPattern(pattern="10", file="crash1.wav", cut=(0,0.2), length=1)
-parser.editPattern(pattern="10", file="", length=0.1)
-parser.editPattern(pattern="10", file="crash1.wav", length=1)
-parser.editPattern(pattern="10", file="", length=0.1)
-parser.editPattern(pattern="10", file="crash1.wav", length=1)
-parser.editPattern(pattern="10", file="", length=0.1)
-parser.editPattern(pattern="10", file="crash2.wav", cut=(0,0.2), length=1)
-parser.editPattern(pattern="10", file="", length=0.1)
 
+# parser.editPattern(pattern="10", file="crash1.wav", cut=(0,0.2), length=1)
+# parser.editPattern(pattern="10", file="", length=0.1)
+# parser.editPattern(pattern="10", file="crash1.wav", length=1)
+# parser.editPattern(pattern="10", file="", length=0.1)
+# parser.editPattern(pattern="10", file="crash1.wav", length=1)
+# parser.editPattern(pattern="10", file="", length=0.1)
+# parser.editPattern(pattern="10", file="crash2.wav", cut=(0,0.2), length=1)
+# parser.editPattern(pattern="10", file="", length=0.1)
+
+parser.editPattern(pattern="10", note="KICK", length=0.2)
+parser.editPattern(pattern="10", note="", length=0.1)
+parser.editPattern(pattern="10", note="KICK", length=0.2)
+parser.editPattern(pattern="10", note="", length=0.1)
+parser.editPattern(pattern="10", note="KICK", length=0.2)
+parser.editPattern(pattern="10", note="", length=0.1)
+parser.editPattern(pattern="10", note="KICK", length=0.2)
+parser.editPattern(pattern="10", note="", length=0.1)
 
 parser.editPattern(pattern="11", note="A3", length=0.16)
 parser.editPattern(pattern="11", note="")

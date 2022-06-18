@@ -62,6 +62,12 @@ class Synth:
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
         return itertools.cycle(self.downgrade(lookup_table))
 
+    def drum_generator(self, frequency, amplitude):
+        period_length = int(self.framerate)
+        if frequency.upper() in ("KICK", "KIK"):
+            drum = array([sin(2000*exp(-15*0.25*i/self.framerate)*i/self.framerate) for i in range(period_length)])**3*16
+        return itertools.cycle(self.downgrade(amplitude*drum))
+
     def sample_generator(self, frequency, file, amplitude, cut=None):
         try:
             with wave.open(file, 'r') as f:
@@ -87,7 +93,7 @@ class Synth:
     def getAmplitude(self, wavetype, amplitude):
         if amplitude!=None: return amplitude
         if self.normalize_volume:
-            if wavetype=="sine":
+            if wavetype in ("sine", "drum"):
                 return 2
             elif wavetype=="square":
                 return 0.5
