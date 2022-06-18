@@ -68,6 +68,12 @@ class Synth:
             drum = array([sin(2000*exp(-15*0.25*i/self.framerate)*i/self.framerate) for i in range(period_length)])**3*16
         return itertools.cycle(self.downgrade(amplitude*drum))
 
+    def misc_generator(self, frequency, soundtype, amplitude):
+        period_length = int(self.framerate)
+        if soundtype.upper() in ("PEW","POW"):
+            sound = array([sin(2*pi*frequency*exp(3.75*i/self.framerate)*i/self.framerate) for i in range(period_length)])**3*16
+        return sound
+
     def sample_generator(self, frequency, file, amplitude, cut=None):
         try:
             with wave.open(file, 'r') as f:
@@ -226,7 +232,7 @@ class Synth:
     def compilePatterns(self, data):
         compiled_patterns = {}
         cnpatterns = 0
-        cut, file = (None, None)
+        optionalArgs = {}
         npatterns = len(data["patterns"])
         self.output(f"Compiling patterns:")
         for pattern in data["patterns"]:
@@ -239,14 +245,20 @@ class Synth:
                     instrument = data["instruments"][pattern]
                     waveargs = {"wavetype": instrument["wavetype"]}
                     if "length" in note: length = note["length"]/self.speed
-                    if "cut" in note: cut = note["cut"]
-                    if "file" in note: file = note["file"]
+                    if "cut" in note: optionalArgs["cut"] = note["cut"]
+                    if "file" in note: optionalArgs["file"] = note["file"]
+                    if "soundtype" in note: optionalArgs["soundtype"] = note["soundtype"]
                     waveargs["length"] = length
                     if waveargs["wavetype"]=="sample":
-                        if cut!=None: waveargs["cut"] = cut
-                        if file!=None: waveargs["file"] = file
-                        if file in ("NN",""):
-                            waveargs["wavetype"] = "silence"
+                        if "cut" in optionalArgs:
+                            waveargs["cut"] = optionalArgs["cut"]
+                        if "file" in optionalArgs:
+                            waveargs["file"] = optionalArgs["file"]
+                            if optionalArgs["file"] in ("NN",""):
+                                waveargs["wavetype"] = "silence"
+                    elif waveargs["wavetype"]=="misc":
+                        if "soundtype" in optionalArgs:
+                            waveargs["soundtype"] = optionalArgs["soundtype"]
                     frequency = note["note"]
                     if "amplitude" in instrument:
                         waveargs["amplitude"] = instrument["amplitude"]
