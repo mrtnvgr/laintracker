@@ -62,17 +62,16 @@ class Synth:
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
         return itertools.cycle(self.downgrade(lookup_table))
 
-    def drum_generator(self, frequency, amplitude):
-        period_length = int(self.framerate)
-        if frequency.upper() in ("KICK", "KIK"):
-            drum = array([sin(2000*exp(-15*0.25*i/self.framerate)*i/self.framerate) for i in range(period_length)])**3*16
-        return itertools.cycle(self.downgrade(amplitude*drum))
+    def drum_generator(self, soundtype, amplitude, frequency=None):
+        if soundtype.upper() in ("KICK","KIK"):
+            if frequency==None: frequency = 2000
+            drum = array([sin(frequency*exp(-15*0.25*i/self.framerate)*i/self.framerate) for i in range(self.note_length)])**3*16
+        return self.downgrade(amplitude*drum)
 
     def misc_generator(self, frequency, soundtype, amplitude):
-        period_length = int(self.framerate)
         if soundtype.upper() in ("PEW","POW"):
-            sound = array([sin(2*pi*frequency*exp(3.75*i/self.framerate)*i/self.framerate) for i in range(period_length)])**3*16
-        return sound
+            sound = array([sin(2*pi*frequency*exp(3.75*i/self.framerate)*i/self.framerate) for i in range(self.note_length)])**3*16
+        return self.downgrade(amplitude*sound)
 
     def sample_generator(self, frequency, file, amplitude, cut=None):
         try:
@@ -187,14 +186,14 @@ class Synth:
 
     def pack_wave_data(self, wavetype, frequency, length, amplitude=None, envelope=None, **kwargs):
         amplitude = self.getAmplitude(amplitude=amplitude, wavetype=wavetype)
+        self.note_length = int(self.framerate * length)
         wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=amplitude, **kwargs)")
         amplitude_scale = self._amplitude_scale
-        num_bytes = int(self.framerate * length)
         if not envelope:
             wave_envelope = self.flat_envelope()
         else:
             wave_envelope = eval("self."+envelope["type"]+"_envelope")(note_length=length, **envelope["args"])
-        wave_slices = itertools.islice(wave_generator, num_bytes)
+        wave_slices = itertools.islice(wave_generator, self.note_length)
         wavedata = [int(next(wave_envelope, 0) * elem * amplitude_scale) for elem in wave_slices]
         return wavedata
     
@@ -256,9 +255,11 @@ class Synth:
                             waveargs["file"] = optionalArgs["file"]
                             if optionalArgs["file"] in ("NN",""):
                                 waveargs["wavetype"] = "silence"
-                    elif waveargs["wavetype"]=="misc":
+                    elif waveargs["wavetype"] in ("misc", "drum"):
                         if "soundtype" in optionalArgs:
                             waveargs["soundtype"] = optionalArgs["soundtype"]
+                            if optionalArgs["soundtype"] in ("NN",""):
+                                waveargs["wavetype"] = "silence"
                     frequency = note["note"]
                     if "amplitude" in instrument:
                         waveargs["amplitude"] = instrument["amplitude"]
