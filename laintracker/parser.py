@@ -2,13 +2,14 @@ import json
 
 class Parser:
     def __init__(self, name, filename, default_wave="triangle", default_envelope=None):
-        self.name = name
         self.filename = filename
         self.default_wave = default_wave
         self.default_envelope = default_envelope
-        self.data = {"instruments": {},
+        self.data = {"metadata": {},
+                     "instruments": {},
                      "order":       [],
                      "patterns":    {}}
+        self.data["metadata"]["name"] = name
     
     def fromFile(self, name=None):
         if name==None: name = self.filename

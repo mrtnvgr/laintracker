@@ -70,7 +70,7 @@ class Synth:
 
     def misc_generator(self, frequency, soundtype, amplitude):
         if soundtype.upper() in ("PEW","POW"):
-            sound = array([sin(2*pi*frequency*exp(3.75*i/self.framerate)*i/self.framerate) for i in range(self.note_length)])**3*16
+            sound = array([sin(2*pi*frequency*exp(3.75*i/self.framerate)*i/self.framerate) for i in range(self.note_length)])**3
         return self.downgrade(amplitude*sound)
 
     def sample_generator(self, frequency, file, amplitude, cut=None):
@@ -115,6 +115,7 @@ class Synth:
 
     def getFrequency(self, frequency):
         if frequency==None: return None
+        if type(frequency)!=str: return frequency
         if frequency[:-1] in self.notefreqs:
             return self.notefreqs[frequency[:-1]][int(frequency[-1])]
         else:
