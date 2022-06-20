@@ -114,7 +114,6 @@ class Synth:
             return res
 
     def getFrequency(self, frequency):
-        if frequency==None: return None
         if type(frequency)!=str: return frequency
         if frequency[:-1] in self.notefreqs:
             return self.notefreqs[frequency[:-1]][int(frequency[-1])]

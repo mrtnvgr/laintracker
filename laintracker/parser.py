@@ -10,6 +10,7 @@ class Parser:
                      "order":       [],
                      "patterns":    {}}
         self.data["metadata"]["name"] = name
+        self.__pattern = False
     
     def fromFile(self, name=None):
         if name==None: name = self.filename
@@ -64,4 +65,6 @@ class Parser:
     def __getPattern(self, pattern):
         if pattern!=None:
             self.__pattern = pattern
+        if self.__pattern==False:
+            raise RuntimeError("Pattern never specified")
         return self.__pattern
