@@ -120,7 +120,51 @@ class Synth:
             return self.notefreqs[frequency[:-1]][int(frequency[-1])]
         else:
             return frequency
-        
+    
+    def __getLength(self, note):
+        if "length" in note:
+            length = note["length"]
+            if type(length) is list:
+                for i in range(len(length)):
+                    length[i] = length[i]/self.speed
+            else:
+                length = length/self.speed
+            self.__length = length
+            self.waveargs["length"] = length
+        else:
+            self.waveargs["length"] = self.__length
+
+    @staticmethod
+    def __getOptionalArgsFromNote(note):
+        optionalArgs = {}
+        for arg in ["cut", "file", "soundtype"]:
+            if arg in note:
+                optionalArgs[arg] = note[arg]
+        return optionalArgs
+
+    def __getArgs(self, optionalArgs, args):
+        for arg in args:
+            if arg in optionalArgs:
+                self.waveargs[arg] = optionalArgs[arg]
+    
+    def __checkSilence(self, arg):
+        if self.waveargs[arg] in ("NN",""):
+            self.waveargs["wavetype"] = "silence"
+
+    def __checkWavetype(self, optionalArgs):
+        if self.waveargs["wavetype"]=="sample":
+            self.__getArgs(optionalArgs, ["cut", "file"])
+            self.__checkSilence("file")
+        elif self.waveargs["wavetype"] in ("misc", "drum"):
+            self.__getArgs(optionalArgs, ["soundtype"])
+            self.__checkSilence("soundtype")
+    
+    def __getFrequency(self, frequency):
+        if frequency in ("NN", ""):
+            self.waveargs["wavetype"] = "silence"
+        else:
+            return frequency
+
     @staticmethod
     def silence_generator(**kwargs):
         return itertools.repeat(0)
@@ -232,7 +276,6 @@ class Synth:
     def compilePatterns(self, data):
         compiled_patterns = {}
         cnpatterns = 0
-        optionalArgs = {}
         npatterns = len(data["patterns"])
         self.output(f"Compiling patterns:")
         for pattern in data["patterns"]:
@@ -243,39 +286,16 @@ class Synth:
                 if note!=None:
                     if pattern not in data["instruments"]: continue
                     instrument = data["instruments"][pattern]
-                    waveargs = {"wavetype": instrument["wavetype"]}
-                    if "length" in note:
-                        length = note["length"]
-                        if type(length) is list:
-                            for i in range(len(length)):
-                                length[i] = length[i]/self.speed
-                        else:
-                            length = length/self.speed
-                    if "cut" in note: optionalArgs["cut"] = note["cut"]
-                    if "file" in note: optionalArgs["file"] = note["file"]
-                    if "soundtype" in note: optionalArgs["soundtype"] = note["soundtype"]
-                    waveargs["length"] = length
-                    if waveargs["wavetype"]=="sample":
-                        if "cut" in optionalArgs:
-                            waveargs["cut"] = optionalArgs["cut"]
-                        if "file" in optionalArgs:
-                            waveargs["file"] = optionalArgs["file"]
-                            if optionalArgs["file"] in ("NN",""):
-                                waveargs["wavetype"] = "silence"
-                    elif waveargs["wavetype"] in ("misc", "drum"):
-                        if "soundtype" in optionalArgs:
-                            waveargs["soundtype"] = optionalArgs["soundtype"]
-                            if optionalArgs["soundtype"] in ("NN",""):
-                                waveargs["wavetype"] = "silence"
-                    frequency = note["note"]
-                    if "amplitude" in instrument:
-                        waveargs["amplitude"] = instrument["amplitude"]
-                    if "filename" in instrument: 
-                        waveargs["filename"] = instrument["filename"]
-                    if "envelope" in instrument:
-                        waveargs["envelope"] = instrument["envelope"]
-                    if frequency in ("NN", ""):
-                        waveargs["wavetype"] = "silence"
+                    self.waveargs = {"wavetype": instrument["wavetype"]}
+
+                    self.__getLength(note)
+                    optionalArgs = self.__getOptionalArgsFromNote(note)
+                    self.__checkWavetype(optionalArgs)
+                    
+                    frequency = self.__getFrequency(note["note"])
+                    self.__getArgs(instrument, ["amplitude","filename","envelope"])
+
+                    waveargs = self.waveargs # NOTE
                     if type(frequency) is list:
                         notes = []
                         if "length" in waveargs: originalLength = waveargs["length"]
