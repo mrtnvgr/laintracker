@@ -244,7 +244,13 @@ class Synth:
                     if pattern not in data["instruments"]: continue
                     instrument = data["instruments"][pattern]
                     waveargs = {"wavetype": instrument["wavetype"]}
-                    if "length" in note: length = note["length"]/self.speed
+                    if "length" in note:
+                        length = note["length"]
+                        if type(length) is list:
+                            for i in range(len(length)):
+                                length[i] = length[i]/self.speed
+                        else:
+                            length = length/self.speed
                     if "cut" in note: optionalArgs["cut"] = note["cut"]
                     if "file" in note: optionalArgs["file"] = note["file"]
                     if "soundtype" in note: optionalArgs["soundtype"] = note["soundtype"]
@@ -272,12 +278,16 @@ class Synth:
                         waveargs["wavetype"] = "silence"
                     if type(frequency) is list:
                         notes = []
+                        if "length" in waveargs: originalLength = waveargs["length"]
                         for fr in range(len(frequency)):
                             waveargs["frequency"] = self.getFrequency(frequency[fr])
                             if "amplitude" in waveargs:
                                 originalAmplitude = waveargs["amplitude"]
-                                if type(originalAmplitude) is list and len(frequency)<=len(originalAmplitude):
+                                if type(originalAmplitude) is list:
                                     waveargs["amplitude"] = originalAmplitude[fr]
+                            if "length" in waveargs:
+                                if type(originalLength) is list: 
+                                    waveargs["length"] = originalLength[fr]
                             notes.append(self.pack_wave_data(**waveargs))
                         notewave = self.overlay_waves(*notes, chord=True)
                     else:
