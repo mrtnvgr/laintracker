@@ -145,6 +145,10 @@ class Synth:
         for arg in args:
             if arg in optionalArgs:
                 self.waveargs[arg] = optionalArgs[arg]
+                self.previousArgs[arg] = optionalArgs[arg]
+            else:
+                if arg in self.previousArgs:
+                    self.waveargs[arg] = self.previousArgs[arg]
     
     def __checkSilence(self, arg):
         if self.waveargs[arg] in ("NN",""):
@@ -334,6 +338,7 @@ class Synth:
 
     def compile(self, data, verbose=False):
         self.verbose = verbose
+        self.previousArgs = {}
         compiled_patterns = self.compilePatterns(data)
         wave = self.joinPatterns(data, compiled_patterns)
         self.save_wave(self.pack_pcm_data(wave))
