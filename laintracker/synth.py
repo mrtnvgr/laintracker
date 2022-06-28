@@ -3,6 +3,7 @@ import itertools, struct, wave
 from random import randint
 
 class Synth:
+    fast_int = int
     def __init__(self, framerate=44100, amplitude=1.0, speed=1.0, quantize=2/15, downgrade=True, downgradeSamples=False, normalize_volume=True):
         self.notefreqs = {
             "C":  [16.35, 32.70, 65.41, 130.81, 261.63, 523.25, 1046.50, 2093.00, 4186.01],
@@ -30,24 +31,24 @@ class Synth:
         self._bits = 16
     
     def sine_generator(self, frequency, amplitude):
-        period_length = int(self.framerate / frequency)
+        period_length = self.fast_int(self.framerate//frequency)
         step = 2 * pi * frequency
         one_period = [amplitude*sin(step * i / self.framerate) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
     def square_generator(self, frequency, amplitude, duty_cycle=50):
-        period_length = int(self.framerate / frequency)
-        duty_cycle = int(duty_cycle * period_length / 100)
-        one_period = [amplitude*(int(i < duty_cycle) * 2 - 1) for i in range(period_length)]
+        period_length = self.fast_int(self.framerate//frequency)
+        duty_cycle = self.fast_int(duty_cycle * period_length // 100)
+        one_period = [amplitude*(self.fast_int(i < duty_cycle) * 2 - 1) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
     def sawtooth_generator(self, frequency, amplitude):
-        period_length = int(self.framerate / frequency)
+        period_length = self.fast_int(self.framerate//frequency)
         one_period = [amplitude*(frequency * (i / self.framerate) * 2 - 1) for i in range(period_length)]
         return itertools.cycle(self.downgrade(one_period))
 
     def triangle_generator(self, frequency, amplitude):
-        period_length = int(self.framerate / frequency)
+        period_length = self.fast_int(self.framerate//frequency)
         half_period = period_length / 2
         one_period = [amplitude*(1 / half_period * (half_period - abs(i - half_period) * 2 - 1) + 0.02)
                       for i in range(period_length)]
@@ -58,7 +59,7 @@ class Synth:
         return itertools.cycle(self.downgrade(period))
 
     def fnoise_generator(self, frequency, amplitude):
-        period = int(self.framerate / frequency)
+        period = self.fast_int(self.framerate//frequency)
         lookup_table = [amplitude*randint(-1, 1) for i in range(period)]
         return itertools.cycle(self.downgrade(lookup_table))
 
@@ -80,7 +81,7 @@ class Synth:
             data = frombuffer(data, dtype=f'int{f.getsampwidth()*8}')/self._amplitude_scale
             if cut!=None:
                 if len(cut)!=2: cut = (cut[0],cut[1])
-                cut = [int(i*self.framerate) for i in cut]
+                cut = [self.fast_int(i*self.framerate) for i in cut]
                 data = data[cut[0]:cut[1]]
             if frequency!=None:
                 pass # TODO
@@ -116,7 +117,7 @@ class Synth:
     def getFrequency(self, frequency):
         if type(frequency)!=str: return frequency
         if frequency[:-1] in self.notefreqs:
-            return self.notefreqs[frequency[:-1]][int(frequency[-1])]
+            return self.notefreqs[frequency[:-1]][self.fast_int(frequency[-1])]
         else:
             return frequency
     
@@ -194,10 +195,10 @@ class Synth:
         release = release*note_length
         length = length*note_length
         assert length >= attack + decay + release
-        total_bytes = int(self.framerate * length)
-        attack_bytes = int(self.framerate * attack)
-        decay_bytes = int(self.framerate * decay)
-        release_bytes = int(self.framerate * release)
+        total_bytes = self.fast_int(self.framerate * length)
+        attack_bytes = self.fast_int(self.framerate * attack)
+        decay_bytes = self.fast_int(self.framerate * decay)
+        release_bytes = self.fast_int(self.framerate * release)
         sustain_bytes = total_bytes - attack_bytes - decay_bytes - release_bytes
         decay_step = (1 - sustain_level) / decay_bytes
         release_step = sustain_level / release_bytes
@@ -212,14 +213,14 @@ class Synth:
 
     def linear_decay_envelope(self, length, peak=1.0, reverse=False, note_length=None):
         length = note_length*length
-        total_bytes = int(self.framerate * length)
+        total_bytes = self.fast_int(self.framerate * length)
         for i in range(total_bytes):
             yield self.getReverse((total_bytes - i) / total_bytes * peak, reverse)
     
     def wave_envelope(self, length, wavetype, frequency, peak=1.0, reverse=False, note_length=None):
         wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=peak)")
         length = note_length*length
-        total_bytes = int(self.framerate * length)
+        total_bytes = self.fast_int(self.framerate * length)
         wave_slices = itertools.islice(wave_generator, total_bytes)
         for elem in wave_slices:
             if wavetype=="square":
@@ -234,7 +235,7 @@ class Synth:
 
     def pack_wave_data(self, wavetype, frequency, length, amplitude=None, envelope=None, **kwargs):
         amplitude = self.getAmplitude(amplitude=amplitude, wavetype=wavetype)
-        self.note_length = int(self.framerate * length)
+        self.note_length = self.fast_int(self.framerate * length)
         wave_generator = eval(f"self.{wavetype}_generator(frequency=frequency, amplitude=amplitude, **kwargs)")
         amplitude_scale = self._amplitude_scale
         if not envelope:
@@ -242,7 +243,7 @@ class Synth:
         else:
             wave_envelope = eval("self."+envelope["type"]+"_envelope")(note_length=length, **envelope["args"])
         wave_slices = itertools.islice(wave_generator, self.note_length)
-        wavedata = [int(next(wave_envelope, 0) * elem * amplitude_scale) for elem in wave_slices]
+        wavedata = [self.fast_int(next(wave_envelope, 0) * elem * amplitude_scale) for elem in wave_slices]
         return wavedata
     
     @staticmethod
