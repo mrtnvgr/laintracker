@@ -2,7 +2,10 @@
 from laintracker import Synth, Parser
 
 synth = Synth(speed=0.90)
-parser = Parser(name="Better Off Alone", filename="boa.json")
+parser = Parser(name="Better Off Alone", filename="boa.json", default_envelope={"type": "adsr", "args":{"attack": 0.01,
+                                                                                                        "decay":  0.01,
+                                                                                                        "release":0.98,
+                                                                                                        "length": 1} })
 
 parser.editInstrument(pattern=["01","02","03"], wavetype="square")
 

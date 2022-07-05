@@ -1,5 +1,5 @@
 #!/bin/python
-from .parser import Parser
-from .synth import Synth
+from .lib.parser import Parser
+from .lib.synth import Synth
 
 __all__ = ['Synth', 'Parser']
